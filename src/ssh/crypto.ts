@@ -20,11 +20,10 @@ export class SSHAESGCMCipher {
   }
 
   private buildNonce(seqNum: number): Uint8Array {
-    const nonce = new Uint8Array(12);
-    nonce.set(this.baseIV.slice(0, 4), 0);
+    const nonce = new Uint8Array(this.baseIV);
     const view = new DataView(nonce.buffer);
-    view.setUint32(4, 0, false);
-    view.setUint32(8, seqNum, false);
+    const lo = view.getUint32(8, false);
+    view.setUint32(8, lo ^ seqNum, false);
     return nonce;
   }
 
@@ -32,6 +31,8 @@ export class SSHAESGCMCipher {
     if (!this.key) throw new Error('Cipher not initialized');
     const seq = seqNum ?? this.seqNum++;
     const nonce = this.buildNonce(seq);
+
+    console.log('[CRYPTO] encrypt seqNum:', seq, 'nonce[8..11]:', nonce[8], nonce[9], nonce[10], nonce[11], 'plaintext len:', plaintext.length);
 
     const encrypted = new Uint8Array(
       await crypto.subtle.encrypt(
@@ -49,6 +50,8 @@ export class SSHAESGCMCipher {
     const seq = seqNum ?? this.seqNum++;
     const nonce = this.buildNonce(seq);
 
+    console.log('[CRYPTO] decrypt seqNum:', seq, 'nonce[8..11]:', nonce[8], nonce[9], nonce[10], nonce[11], 'ciphertext len:', ciphertext.length);
+
     try {
       const decrypted = new Uint8Array(
         await crypto.subtle.decrypt(
@@ -59,6 +62,8 @@ export class SSHAESGCMCipher {
       );
       return decrypted;
     } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      console.error('[CRYPTO] decrypt FAILED seqNum:', seq, 'error:', errMsg);
       return null;
     }
   }

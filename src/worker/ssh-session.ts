@@ -61,6 +61,7 @@ export class SSHSession {
 
   async startHandshake(): Promise<void> {
     console.log('[SSH] Starting handshake, current state:', this.state);
+    this.ws.send(JSON.stringify({ type: 'status', message: '正在交换版本信息...' }));
     this.state = 'version';
     console.log('[SSH] State changed to: version');
     
@@ -94,6 +95,7 @@ export class SSHSession {
           console.log('[SSH] Server version:', versionStr.trim());
           if (this.transport.handleVersionExchange(versionStr)) {
             console.log('[SSH] Version exchange complete');
+            this.ws.send(JSON.stringify({ type: 'status', message: '版本交换完成，正在密钥协商...' }));
             this.state = 'kex';
             console.log('[SSH] State changed to: kex');
             await this.startKEX();
@@ -101,6 +103,7 @@ export class SSHSession {
         } else {
           try {
             this.packetParser.feed(value);
+            console.log('[PKT] Processing packets, decryptCipher:', !!this.decryptCipher, 'parser seqNum:', this.packetParser.getSeqNum());
             await this.processPackets();
           } catch (pktError) {
             const pktErrMsg = pktError instanceof Error ? pktError.message : String(pktError);
@@ -170,10 +173,13 @@ export class SSHSession {
         !!this.decryptCipher
       );
 
-      if (!packet) break;
+      if (!packet) {
+        console.log('[PKT] No complete packet available, buffer size:', this.packetParser.getBufferLength());
+        break;
+      }
 
       const msgType = packet.payload[0];
-      console.log('[PKT] Received message type:', msgType, 'state:', this.state);
+      console.log('[PKT] Received message type:', msgType, 'state:', this.state, 'payload len:', packet.payload.length);
 
       await this.handlePacket(packet);
     }
@@ -218,7 +224,7 @@ export class SSHSession {
           newKeys, 8, null, this.seqNumSend++
         );
         await this.writeSocket(packet);
-        console.log('[KEX] NEWKEYS sent');
+        console.log('[KEX] NEWKEYS sent, seqNumSend:', this.seqNumSend);
 
         this.seqNumSend = 0;
         this.packetParser.resetSeqNum();
@@ -227,6 +233,7 @@ export class SSHSession {
 
         this.state = 'auth';
         console.log('[SSH] State changed to: auth');
+        this.ws.send(JSON.stringify({ type: 'status', message: '加密已启用，正在认证...' }));
         await this.authenticate();
         break;
     }

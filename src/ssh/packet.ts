@@ -25,7 +25,7 @@ export class SSHPacketParser {
       const raw = this.buffer.slice(0, expectedSize);
       this.buffer = this.buffer.slice(expectedSize);
 
-      const dataToDecrypt = raw.slice(4, 4 + packetLength);
+      const dataToDecrypt = raw.slice(4);
       const decrypted = await decrypt(dataToDecrypt, this.seqNum);
       if (!decrypted) return null;
 
