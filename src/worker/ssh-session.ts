@@ -295,7 +295,8 @@ export class SSHSession {
     const packet = await SSHPacketBuilder.build(
       authRequest, 16,
       (data, seq) => this.encryptCipher!.encrypt(data, seq),
-      this.seqNumSend++
+      this.seqNumSend++,
+      true
     );
     await this.writeSocket(packet);
     console.log('[AUTH] Auth request sent');
@@ -429,7 +430,8 @@ export class SSHSession {
     const encrypted = await SSHPacketBuilder.build(
       payload, 16,
       (data, seq) => this.encryptCipher!.encrypt(data, seq),
-      this.seqNumSend++
+      this.seqNumSend++,
+      true
     );
     await this.writeSocket(encrypted);
   }

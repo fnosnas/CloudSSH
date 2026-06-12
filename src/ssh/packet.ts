@@ -15,6 +15,33 @@ export class SSHPacketParser {
   async nextPacket(blockSize: number, decrypt: (
     data: Uint8Array, seq: number
   ) => Uint8Array | Promise<Uint8Array | null> | null, hasAuthTag: boolean = false): Promise<SSHPacket | null> {
+    if (hasAuthTag) {
+      if (this.buffer.length < 4) return null;
+      const packetLength = readUint32(this.buffer, 0);
+      const expectedSize = 4 + packetLength + 16;
+
+      if (this.buffer.length < expectedSize) return null;
+
+      const raw = this.buffer.slice(0, expectedSize);
+      this.buffer = this.buffer.slice(expectedSize);
+
+      const dataToDecrypt = raw.slice(4, 4 + packetLength);
+      const decrypted = await decrypt(dataToDecrypt, this.seqNum);
+      if (!decrypted) return null;
+
+      const paddingLength = decrypted[0];
+      const payload = decrypted.slice(1, 1 + packetLength - 1 - paddingLength);
+
+      this.seqNum++;
+
+      return {
+        length: packetLength,
+        paddingLength,
+        payload,
+        mac: raw.slice(4 + packetLength),
+      };
+    }
+
     if (this.buffer.length < blockSize) return null;
 
     const header = await decrypt(
@@ -28,12 +55,10 @@ export class SSHPacketParser {
     const totalBlocks = Math.ceil((4 + packetLength) / blockSize);
     const totalSize = totalBlocks * blockSize;
 
-    const expectedSize = hasAuthTag ? totalSize + 16 : totalSize;
+    if (this.buffer.length < totalSize) return null;
 
-    if (this.buffer.length < expectedSize) return null;
-
-    const encryptedPacket = this.buffer.slice(0, expectedSize);
-    this.buffer = this.buffer.slice(expectedSize);
+    const encryptedPacket = this.buffer.slice(0, totalSize);
+    this.buffer = this.buffer.slice(totalSize);
 
     const decrypted = await decrypt(encryptedPacket, this.seqNum);
     if (!decrypted) return null;
@@ -47,7 +72,6 @@ export class SSHPacketParser {
       length: packetLength,
       paddingLength,
       payload,
-      mac: hasAuthTag ? encryptedPacket.slice(totalSize) : undefined,
     };
   }
 
@@ -65,7 +89,8 @@ export class SSHPacketBuilder {
     payload: Uint8Array,
     blockSize: number,
     encrypt: ((data: Uint8Array, seq: number) => Uint8Array | Promise<Uint8Array>) | null,
-    seqNum: number
+    seqNum: number,
+    hasAuthTag: boolean = false
   ): Promise<Uint8Array> {
     const packetLength = 1 + payload.length;
     const paddingNeeded = blockSize - ((4 + packetLength) % blockSize);
@@ -92,6 +117,15 @@ export class SSHPacketBuilder {
     packet.set(randomPadding, 5 + payload.length);
 
     if (encrypt) {
+      if (hasAuthTag) {
+        const lengthField = packet.slice(0, 4);
+        const dataToEncrypt = packet.slice(4);
+        const encryptedData = await encrypt(dataToEncrypt, seqNum);
+        const result = new Uint8Array(4 + encryptedData.length);
+        result.set(lengthField, 0);
+        result.set(encryptedData, 4);
+        return result;
+      }
       return await encrypt(packet, seqNum);
     }
 
