@@ -108,7 +108,7 @@ flowchart TB
 1. **Fork 本仓库** 到你的 GitHub 账号。
 2. **修改域名**：在进行部署前，请先将 `wrangler.toml` 中的自定义域名改成你自己的域名（要求：域名需要先在 Cloudflare 中完成注册或接入）。
 3. **一键部署**：登录 Cloudflare，进入 Workers & Pages 绑定你的 GitHub 账号，选择刚才 Fork 的仓库进行应用创建。
-4. **填写构建命令**：在部署设置中，请务必将“构建命令”（Build command）填写为 `npm install && npm run build:frontend`，然后点击保存并部署（无需填写构建输出目录）。
+4. **填写构建命令**：在部署设置中，请务必将“构建命令”（Build command）填写为 `npm run build:frontend`，然后点击保存并部署（无需填写构建输出目录）。
 
 #### 方式二：本地命令行部署
 
