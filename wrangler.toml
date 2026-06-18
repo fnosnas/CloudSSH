@@ -12,7 +12,7 @@ workers_dev = false
 # TURNSTILE_SITEKEY = "your-turnstile-site-key"
 
 [[routes]]
-pattern = "ssh.newbietan.cn"
+pattern = "ae86.cc.cd"
 custom_domain = true
 
 [[durable_objects.bindings]]
